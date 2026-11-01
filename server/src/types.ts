@@ -1,0 +1,4 @@
+export type EvidenceType='messages'|'images'|'cctv'|'documents'|'witnessStatements'|'timeline';
+export type Evidence={id:string;type:EvidenceType;title:string;description:string;content:string;timestamp:string;relatedSuspectIds:string[];significance:string};
+export type Suspect={id:string;name:string;age:number;occupation:string;relationship:string;background:string;motive:string;initials:string;color:string};
+export type CaseData={case:{title:string;description:string;category:string;difficulty:string;location:string;incidentDate:string;incidentTime:string;caseId:string};victim:{name:string;age:number;occupation:string;details:string};suspects:Suspect[];timeline:{time:string;event:string}[];evidence:Evidence[];solution:{culpritId:string;motive:string;method:string;opportunity:string;explanation:string;criticalEvidence:string[];redHerrings:string;reconstruction:string}};
