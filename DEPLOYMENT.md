@@ -1,81 +1,53 @@
-# Deployment walkthrough
+# Deploy AI Mystery Room
 
-This repo deploys as two services:
+Follow these five steps. You will use GitHub, MongoDB Atlas, Render, and Vercel.
 
-- **Frontend:** Vercel, from the `client` directory.
-- **API:** Render Web Service, configured by the root `render.yaml`.
-- **Database:** MongoDB Atlas.
-- **Mystery generation:** Gemini, called only from the API.
+## 1. Put the project on GitHub
 
-## 1. Prepare the repository
+Use GitHub Desktop: **File > Add Local Repository**, choose this project folder, then **Publish repository**. A private repository is fine.
 
-1. Create a GitHub repository and push this project to its `main` branch.
-2. Before committing, run `git status --short` and make sure `server/.env` is not listed. `.env` files are ignored. Never paste `.env` into a public issue or commit it; use the platform environment settings for secrets.
+Before publishing, confirm `server/.env` is ignored. Never upload that file; it contains your private keys.
 
-## 2. Prepare MongoDB Atlas
+## 2. Create the database
 
-1. In Atlas, create or select a cluster and create a database user with a strong password.
-2. In **Network Access**, add the outbound IP ranges shown for your Render service. Render shows these under the service's **Connect → Outbound** tab. If you create Atlas first, you can add these ranges after Render creates the service.
-3. Copy Atlas's **Drivers** connection string. Replace the username/password placeholders, URL-encode special characters in the password, and select a database name such as `ai-mystery-room`.
+In [MongoDB Atlas](https://www.mongodb.com/atlas):
 
-Atlas rejects connections from IPs that are not on the project's access list. Add Render's outbound ranges instead of opening Atlas to every IP when possible. [Atlas connection troubleshooting](https://www.mongodb.com/docs/atlas/troubleshoot-connection/) · [Render outbound IPs](https://render.com/docs/outbound-ip-addresses)
+1. Create a cluster and a database user.
+2. Copy the **Drivers** connection string. Keep it ready for Render.
 
-## 3. Deploy the frontend to Vercel
+You will add Render's network address to Atlas in step 3. Atlas only accepts connections from allowed IP addresses. [Atlas connection help](https://www.mongodb.com/docs/atlas/troubleshoot-connection/)
 
-1. Import the GitHub repository as a new Vercel project.
-2. Keep **Root Directory** at the repository root and select **Other** as the framework preset. The root `vercel.json` installs from the npm workspace lockfile, builds only the client workspace, publishes `client/dist`, and routes app pages back to the SPA.
-3. Add this environment variable for Production (and Preview too if you plan to test preview deployments):
+## 3. Deploy the API on Render
 
-   | Name | Value |
-   | --- | --- |
-   | `VITE_API_URL` | `https://YOUR-RENDER-SERVICE.onrender.com/api/v1` |
+1. In [Render](https://dashboard.render.com/), select **New → Blueprint** and connect your GitHub repository.
+2. Render reads `render.yaml`. When asked for values, enter:
 
-   The API URL is public configuration, not a secret. Vite embeds `VITE_` variables in the browser bundle; never put `GEMINI_API_KEY` or `MONGODB_URI` in Vercel.
+   - `MONGODB_URI`: your Atlas connection string
+   - `GEMINI_API_KEY`: your Gemini API key
+   - `CLIENT_ORIGIN`: temporarily enter `http://localhost:5173`
 
-4. Deploy. Vercel assigns a domain such as `https://your-project.vercel.app`. The rewrite lets app pages such as `/investigation/...` load when refreshed. [Vercel Vite deployment](https://vercel.com/docs/frameworks/frontend/vite) · [Vercel monorepos](https://vercel.com/docs/monorepos)
+3. Wait for the deploy, then copy the API URL. It looks like `https://ai-mystery-room-api.onrender.com`.
+4. In Render, open the service's **Connect > Outbound** tab. Add the listed IP addresses in Atlas under **Network Access**. Wait until `https://YOUR-API-URL/api/v1/health/ready` says the database is ready.
 
-You can initially use a placeholder Render URL in `VITE_API_URL`; set the real service URL and redeploy after Render is live.
+Keep Gemini and MongoDB secrets in Render's Environment settings. [Render Blueprint help](https://render.com/docs/blueprint-spec)
 
-## 4. Deploy the API to Render
+## 4. Deploy the website on Vercel
 
-1. In Render, choose **New → Blueprint** and connect the same GitHub repository. Render reads the root `render.yaml` and creates the API web service.
-2. When prompted for Blueprint values, enter:
+1. In [Vercel](https://vercel.com/), choose **Add New > Project** and import the same GitHub repository.
+2. Keep the root directory as-is and choose **Other** if asked for a framework. The included `vercel.json` supplies the build settings.
+3. Add this environment variable:
 
-   | Name | Value |
-   | --- | --- |
-   | `MONGODB_URI` | The Atlas connection string from step 2 |
-   | `GEMINI_API_KEY` | Your Gemini API key |
-   | `CLIENT_ORIGIN` | The exact Vercel site origin, e.g. `https://your-project.vercel.app` |
+   - `VITE_API_URL` = `https://YOUR-API-URL/api/v1`
 
-   For a custom frontend domain, use that origin instead. Multiple allowed origins may be comma-separated; do not include a path or trailing slash.
+4. Deploy. Copy the website URL Vercel gives you, such as `https://your-project.vercel.app`.
 
-3. Wait for the build and deploy to finish. The service listens on Render's injected `PORT` and binds to `0.0.0.0`. The Blueprint health check uses the shallow `/api/v1/health` endpoint so the process can start while MongoDB reconnects.
-4. Open **Connect → Outbound** on the Render service and add its listed IP ranges to Atlas **Network Access** if you have not already. Wait for MongoDB to connect; `/api/v1/health/ready` returns success once the database is ready.
-5. Copy the Render service URL, for example `https://ai-mystery-room-api.onrender.com`. Update Vercel's `VITE_API_URL` to add `/api/v1` and redeploy the frontend.
+## 5. Connect the website to the API
 
-Render's `sync: false` Blueprint variables are requested when the Blueprint is first created. Add or change them later in the service's **Environment** page. [Render Blueprints](https://render.com/docs/blueprint-spec) · [Render environment variables](https://render.com/docs/configure-environment-variables)
+1. In Render, open **Environment** for the API service.
+2. Change `CLIENT_ORIGIN` from `http://localhost:5173` to your Vercel URL, with no trailing slash.
+3. Save and redeploy the API.
+4. In Vercel, open **Settings > Environment Variables**. If you changed the API URL, update `VITE_API_URL`, then redeploy the website.
 
-## 5. Verify the deployment
+Open the Vercel website and create a case to confirm everything works.
 
-Open these URLs in a browser, replacing the hostname with your Render URL:
-
-- `https://YOUR-RENDER-SERVICE.onrender.com/api/v1/health` — API process responds; database status is included.
-- `https://YOUR-RENDER-SERVICE.onrender.com/api/v1/health/ready` — returns success only when MongoDB is connected.
-- `https://YOUR-VERCEL-SITE.vercel.app` — frontend loads.
-
-Then create a case with at least 30 characters, open evidence, submit one accusation, and confirm the results page reveals the solution. The first request to a free Render web service can be slow after inactivity: free services spin down after 15 minutes without traffic and may take about a minute to wake. For a consistently responsive public app, use an always-on plan. [Render free services](https://render.com/docs/free)
-
-## Environment variables at a glance
-
-**Render only:**
-
-- `MONGODB_URI` — Atlas connection string
-- `GEMINI_API_KEY` — private Gemini credential
-- `GEMINI_MODEL` — defaults to `gemini-3.8-flash`
-- `CLIENT_ORIGIN` — Vercel production origin(s)
-- `NODE_ENV=production`
-- `PORT` — supplied by Render
-
-**Vercel only:**
-
-- `VITE_API_URL` — public Render API URL ending in `/api/v1`
+**Note:** Render's free API service may sleep after 15 minutes of inactivity, so the first request after a quiet period can take about a minute. [Render free service details](https://render.com/docs/free)
