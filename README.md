@@ -21,6 +21,8 @@ The client runs at http://localhost:5173 and the API at http://localhost:4000. C
 
 The server requires Gemini and MongoDB to generate and persist a case. If either service is not configured or reachable, generation reports an actionable error; the product does not fall back to hardcoded mystery content.
 
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for the Vercel, Render, and MongoDB Atlas deployment walkthrough.
+
 ## API
 
 Base path: `/api/v1`
